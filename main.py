@@ -1,5 +1,7 @@
 #! /usr/bine/env python3
 
+from pymongo import MongoClient
+from urllib.parse import quote
 from datetime import date
 from optparse import OptionParser
 from colorama import Fore, Back, Style
@@ -14,6 +16,7 @@ status_color = {
     ' ': Fore.WHITE
 }
 
+url_prefix = "mongodb://"
 lock = Lock()
 thread_count = cpu_count()
 
@@ -26,8 +29,15 @@ def get_arguments(*args):
         parser.add_option(arg[0], arg[1], dest=arg[2], help=arg[3])
     return parser.parse_args()[0]
 
-def login(server, username, password):
-    pass
+def login(server, username='', password=''):
+    t1 = time()
+    try:
+        MongoClient(f"{url_prefix}{quote(username)}:{quote(password)}@{server}").server_info() if username != '' else MongoClient(f"{url_prefix}{server}").server_info()
+        t2 = time()
+        return True, t2-t1
+    except Exception as error:
+        t2 = time()
+        return (False if "auth" in str(error).lower() else error), t2-t1
 def brute_force(thread_index, servers, credentials):
     successful_logins = {}
     for credential in credentials:
